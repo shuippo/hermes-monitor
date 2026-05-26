@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0805">
+<title>HERMÈS Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #0a0805;
+  --s1:       #13100c;
+  --s2:       #1c1710;
+  --border:   #2a2016;
+  --gold:     #c9a86c;
+  --gold-l:   #e8d4a8;
+  --gold-d:   #6a5530;
+  --text:     #ede5d8;
+  --dim:      #8a7a62;
+  --muted:    #4a4030;
+  --green:    #6db87a;
+  --red:      #c97070;
+  --blue:     #7090c9;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Jost', sans-serif;
+  min-height: 100dvh;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+::-webkit-scrollbar { width: 2px; }
+::-webkit-scrollbar-thumb { background: var(--gold-d); }
+
+/* ── Animations ───────────────────────────────────── */
+@keyframes fadeUp   { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
+@keyframes pulse    { 0%,100%{opacity:1} 50%{opacity:.35} }
+@keyframes spin     { to{transform:rotate(360deg)} }
+@keyframes shimmer  { from{background-position:-200% center} to{background-position:200% center} }
+@keyframes slideIn  { from{opacity:0;transform:translateX(-10px)} to{opacity:1;transform:none} }
+@keyframes toast    { 0%{opacity:0;transform:translateY(-10px)} 10%,80%{opacity:1;transform:none} 100%{opacity:0} }
+
+.fade-up   { animation: fadeUp  .4s ease both }
+.pulse-dot { animation: pulse  1.6s ease-in-out infinite }
+.spin      { animation: spin   1.1s linear infinite }
+.slide-in  { animation: slideIn .3s ease both }
+
+/* ── Layout ───────────────────────────────────────── */
+#app {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ───────────────────────────────────────── */
+#header {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 18px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header-title { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 600; color: var(--gold-l); letter-spacing:.06em }
+.header-sub   { font-size: 9px; letter-spacing:.35em; color: var(--gold-d); margin-bottom:3px; font-weight:500 }
+
+/* ── Tabs ─────────────────────────────────────────── */
+#tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  position: sticky; top: 64px; z-index: 90;
+}
+.tab-btn {
+  flex: 1; padding: 11px 4px;
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--muted); font-size: 10px; font-family: 'Jost', sans-serif;
+  letter-spacing:.12em; cursor: pointer; transition: all .2s;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+}
+.tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+.tab-badge {
+  background: var(--gold-d); color: #0a0805;
+  border-radius: 8px; font-size: 8px; padding: 1px 4px; font-weight: 700;
+}
+
+/* ── Panels ───────────────────────────────────────── */
+.panel { display: none; flex: 1; overflow-y: auto; }
+.panel.active { display: block; }
+
+/* ── Cards ────────────────────────────────────────── */
+.card {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin: 14px;
+  overflow: hidden;
+}
+.card.glow { border-color: var(--gold-d); box-shadow: 0 0 24px rgba(201,168,108,.07); }
+.card-body { padding: 18px; }
+.card-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 13px; color: var(--gold-l); font-weight: 600;
+  letter-spacing:.05em; margin-bottom: 12px;
+}
+
+/* ── Status dot ───────────────────────────────────── */
+.status-row { display: flex; align-items: center; gap: 8px; }
+.status-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-label { font-size: 11px; letter-spacing:.1em; font-weight:500 }
+
+/* ── Big countdown ────────────────────────────────── */
+#countdown-wrap { text-align: center; margin-bottom: 16px; }
+#countdown-label { font-size: 9px; letter-spacing:.25em; color: var(--muted); margin-bottom:4px }
+#countdown-val {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 48px; font-weight: 300; color: var(--gold-l);
+  letter-spacing:.1em; line-height:1;
+}
+
+/* ── Stats ────────────────────────────────────────── */
+.stats-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1px; }
+.stat-item { text-align: center; padding: 10px 4px; }
+.stat-val {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 26px; font-weight: 400; color: var(--gold-l);
+}
+.stat-unit { font-size: 11px; color: var(--muted); margin-left:2px }
+.stat-label { font-size: 9px; color: var(--muted); letter-spacing:.12em; margin-top:2px }
+
+/* ── Buttons ──────────────────────────────────────── */
+.btn {
+  display: block; width: 100%;
+  padding: 12px; border-radius: 4px;
+  font-family: 'Jost', sans-serif; font-size: 11px;
+  letter-spacing: .18em; font-weight: 500;
+  cursor: pointer; border: none; transition: all .18s;
+  text-align: center;
+}
+.btn + .btn { margin-top: 8px; }
+.btn-gold   { background: var(--gold);  color: #0a0805; }
+.btn-ghost  { background: transparent; color: var(--gold); border: 1px solid var(--gold-d); }
+.btn-red    { background: #2a1010;      color: var(--red); border: 1px solid #3d1818; }
+.btn-green  { background: #0d2010;      color: var(--green); border: 1px solid #1a3520; }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn:active:not(:disabled) { transform: scale(.98); }
+
+/* ── Chip row ─────────────────────────────────────── */
+.chip-label { font-size: 9px; color: var(--muted); letter-spacing:.2em; margin-bottom:8px }
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.chip {
+  padding: 5px 13px; border-radius: 20px;
+  font-size: 11px; font-family: 'Jost', sans-serif;
+  cursor: pointer; border: 1px solid var(--border);
+  background: var(--s1); color: var(--dim);
+  transition: all .15s; user-select: none;
+}
+.chip.on { background: #221908; color: var(--gold); border-color: var(--gold-d); }
+
+/* ── Divider ──────────────────────────────────────── */
+.divider { height: 1px; background: var(--border); margin: 14px 0; }
+
+/* ── Notification row ─────────────────────────────── */
+.notif-row {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; gap: 10px; align-items: flex-start;
+  animation: slideIn .28s ease both;
+}
+.notif-tag {
+  padding: 2px 7px; border-radius: 2px;
+  font-size: 9px; letter-spacing:.12em; font-weight:600;
+  white-space: nowrap; flex-shrink:0; margin-top:1px;
+}
+.tag-new     { background:#241606; color:var(--gold);  border:1px solid #3d2509 }
+.tag-restock { background:#0a1a0c; color:var(--green); border:1px solid #153520 }
+.tag-info    { background:var(--s2); color:var(--dim);  border:1px solid var(--border) }
+.tag-error   { background:#1a0a0a; color:var(--red);   border:1px solid #2d1414 }
+.notif-title { font-size:13px; color:var(--text); font-weight:500; margin-bottom:2px; line-height:1.4 }
+.notif-body  { font-size:11px; color:var(--dim); line-height:1.5 }
+.notif-link  { font-size:10px; color:var(--gold-d); text-decoration:none; letter-spacing:.06em }
+.notif-time  { font-size:10px; color:var(--muted); white-space:nowrap; padding-top:2px; flex-shrink:0 }
+
+/* ── Product row ──────────────────────────────────── */
+.product-row {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; gap: 10px; align-items: center;
+}
+.product-info { flex: 1; min-width: 0 }
+.product-name { font-size:13px; color:var(--text); font-weight:500; margin-bottom:2px }
+.product-sub  { font-size:11px; color:var(--dim) }
+.product-link { font-size:10px; color:var(--gold-d); text-decoration:none }
+.in-stock-tag  { padding:3px 8px; border-radius:2px; font-size:9px; font-weight:600; letter-spacing:.1em;
+  background:#0a1a0c; color:var(--green); border:1px solid #153520; white-space:nowrap }
+.out-stock-tag { padding:3px 8px; border-radius:2px; font-size:9px; font-weight:600; letter-spacing:.1em;
+  background:#1a0a0a; color:var(--red); border:1px solid #2d1414; white-space:nowrap }
+
+/* ── Setup form ───────────────────────────────────── */
+.form-label  { font-size:11px; color:var(--gold-l); font-weight:500; margin-bottom:6px }
+.form-hint   { font-size:11px; color:var(--dim); line-height:1.6; margin-bottom:12px }
+.form-input  {
+  width:100%; background:#100d08; border:1px solid var(--border);
+  border-radius:4px; padding:11px 12px; color:var(--text);
+  font-size:12px; font-family:'Jost',sans-serif; margin-bottom:10px;
+  outline: none;
+}
+.form-input:focus { border-color: var(--gold-d); }
+
+/* ── Toast ────────────────────────────────────────── */
+#toast {
+  position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+  z-index: 9999;
+  background: var(--s1); border: 1px solid var(--gold-d);
+  border-radius: 6px; padding: 10px 18px;
+  font-size: 12px; color: var(--gold-l);
+  box-shadow: 0 8px 32px rgba(0,0,0,.7);
+  white-space: nowrap; pointer-events: none;
+  animation: toast 2.8s ease forwards;
+}
+
+/* ── Banner ───────────────────────────────────────── */
+.banner {
+  margin: 14px;
+  padding: 13px 15px;
+  background: #1a1306;
+  border: 1px solid var(--gold-d);
+  border-radius: 6px;
+}
+.banner-title { font-size:13px; color:var(--gold-l); font-weight:500; margin-bottom:4px }
+.banner-body  { font-size:11px; color:var(--dim); line-height:1.6 }
+
+/* ── Error box ────────────────────────────────────── */
+.error-box {
+  margin-top: 10px; padding: 9px 12px;
+  background: #1a0a0a; border: 1px solid #2d1414;
+  border-radius: 4px; font-size: 11px; color: var(--red); line-height: 1.5;
+}
+
+/* ── Step guide ───────────────────────────────────── */
+.step-row { display:flex; gap:10px; margin-bottom:12px; align-items:flex-start }
+.step-num {
+  width:20px; height:20px; border-radius:50%; flex-shrink:0;
+  background:#221908; border:1px solid var(--gold-d);
+  color:var(--gold); font-size:10px; font-weight:700;
+  display:flex; align-items:center; justify-content:center;
+}
+.step-text { font-size:12px; color:var(--dim); line-height:1.6 }
+
+/* ── Empty state ──────────────────────────────────── */
+.empty {
+  padding: 50px 20px; text-align: center;
+  color: var(--muted); font-size: 13px; font-style: italic;
+}
+
+/* ── See-more ─────────────────────────────────────── */
+.see-more {
+  display:block; width:100%; padding:12px;
+  background:none; border:none; color:var(--gold-d);
+  font-size:11px; font-family:'Jost',sans-serif;
+  letter-spacing:.1em; cursor:pointer;
+}
+
+/* ── Progress bar ─────────────────────────────────── */
+#progress-wrap { height: 2px; background: var(--border); margin-bottom: 14px; border-radius: 1px; overflow:hidden }
+#progress-bar  { height: 100%; background: var(--gold); width: 0%; transition: width .5s ease; border-radius: 1px }
+
+a { color: var(--gold); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Header -->
+  <div id="header">
+    <div>
+      <div class="header-sub">HERMÈS JAPAN</div>
+      <div class="header-title">Stock Monitor</div>
+    </div>
+    <div class="status-row" id="header-status">
+      <div class="status-dot" id="status-dot" style="background:var(--muted)"></div>
+      <span class="status-label" id="status-label" style="color:var(--muted)">停止中</span>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div id="tabs">
+    <button class="tab-btn active" data-tab="monitor" onclick="switchTab('monitor')">
+      監視
+    </button>
+    <button class="tab-btn" data-tab="notifs" onclick="switchTab('notifs')">
+      通知 <span class="tab-badge" id="notif-badge" style="display:none">0</span>
+    </button>
+    <button class="tab-btn" data-tab="items" onclick="switchTab('items')">
+      商品 <span class="tab-badge" id="item-badge" style="display:none">0</span>
+    </button>
+    <button class="tab-btn" data-tab="setup" onclick="switchTab('setup')">
+      設定
+    </button>
+  </div>
+
+  <!-- ── MONITOR PANEL ──────────────────────────────── -->
+  <div class="panel active" id="panel-monitor">
+
+    <!-- Countdown card -->
+    <div class="card fade-up" id="control-card">
+      <div class="card-body">
+
+        <div id="countdown-wrap" style="display:none">
+          <div class="countdown-label" id="countdown-label">NEXT CHECK</div>
+          <div id="countdown-val">--:--</div>
+        </div>
+
+        <div id="progress-wrap" style="display:none">
+          <div id="progress-bar"></div>
+        </div>
+
+        <button class="btn btn-gold" id="start-btn" onclick="toggleMonitor()">▶ 監視を開始する</button>
+        <button class="btn btn-ghost" id="manual-btn" onclick="manualCheck()" style="display:none" disabled>今すぐ確認する</button>
+
+        <div class="divider" style="margin:14px 0 12px"></div>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-val" id="stat-checks">0<span class="stat-unit">回</span></div>
+            <div class="stat-label">チェック</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-val" id="stat-notifs">0<span class="stat-unit">件</span></div>
+            <div class="stat-label">本日の通知</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-val" id="stat-stock">0<span class="stat-unit">品</span></div>
+            <div class="stat-label">在庫あり</div>
+          </div>
+        </div>
+        <div id="last-check-label" style="text-align:center;font-size:10px;color:var(--muted);margin-top:8px"></div>
+        <div id="error-box" class="error-box" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- Category chips -->
+    <div style="padding: 0 14px 6px">
+      <div class="chip-label">監視カテゴリ</div>
+      <div class="chip-row" id="cat-chips"></div>
+      <div class="chip-label">確認間隔</div>
+      <div class="chip-row" id="interval-chips"></div>
+    </div>
+
+    <!-- Push notif banner -->
+    <div id="notif-banner" class="banner" style="display:none">
+      <div class="banner-title">🔔 Push通知を許可してください</div>
+      <div class="banner-body">
+        入荷時にスマホへ通知するために必要です。
+        <button onclick="requestPush()" style="margin-top:8px;display:block;background:var(--gold);color:#0a0805;border:none;border-radius:3px;padding:6px 14px;font-size:11px;letter-spacing:.1em;cursor:pointer;font-family:'Jost',sans-serif">許可する</button>
+      </div>
+    </div>
+
+    <!-- Recent notifs preview -->
+    <div style="margin:8px 14px 4px;font-size:9px;color:var(--muted);letter-spacing:.2em">最近の通知</div>
+    <div id="recent-notifs"></div>
+    <button class="see-more" id="see-more-btn" onclick="switchTab('notifs')" style="display:none">
+      すべての通知履歴を見る →
+    </button>
+    <div id="empty-notifs" class="empty">監視を開始すると通知が届きます</div>
+
+    <div style="height:32px"></div>
+  </div>
+
+  <!-- ── NOTIFS PANEL ───────────────────────────────── -->
+  <div class="panel" id="panel-notifs">
+    <div style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
+      <span style="font-size:13px;font-weight:500" id="notif-count-label">通知履歴</span>
+      <button onclick="clearNotifs()" style="background:none;border:none;color:var(--red);font-size:11px;cursor:pointer;font-family:'Jost',sans-serif">クリア</button>
+    </div>
+    <div id="notif-list"></div>
+    <div id="notif-empty" class="empty">通知履歴はありません</div>
+    <div style="height:32px"></div>
+  </div>
+
+  <!-- ── ITEMS PANEL ────────────────────────────────── -->
+  <div class="panel" id="panel-items">
+    <div style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
+      <span style="font-size:13px;font-weight:500" id="items-count-label">検出商品</span>
+      <span id="in-stock-label" style="font-size:11px;color:var(--green)"></span>
+    </div>
+    <div id="items-list"></div>
+    <div id="items-empty" class="empty">チェックを実行すると商品が表示されます</div>
+    <div style="height:32px"></div>
+  </div>
+
+  <!-- ── SETUP PANEL ────────────────────────────────── -->
+  <div class="panel" id="panel-setup">
+    <div style="padding: 14px">
+
+      <!-- Push通知 -->
+      <div class="card" style="margin:0 0 14px">
+        <div class="card-body">
+          <div class="card-title">🔔 Push通知</div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div class="form-hint" style="margin:0" id="push-status-text">確認中...</div>
+            <button id="push-btn" onclick="requestPush()" style="display:none;background:var(--green);color:#0a0805;border:none;border-radius:3px;padding:7px 14px;font-size:11px;letter-spacing:.1em;cursor:pointer;font-family:'Jost',sans-serif">許可する</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 使い方 -->
+      <div class="card" style="margin:0 0 14px">
+        <div class="card-body">
+          <div class="card-title">使い方（完全無料）</div>
+          <div class="step-row"><div class="step-num">1</div><div class="step-text">このHTMLファイルをスマホのブラウザで開く（Safariまたは Chrome）</div></div>
+          <div class="step-row"><div class="step-num">2</div><div class="step-text">Push通知を「許可する」（入荷時に通知）</div></div>
+          <div class="step-row"><div class="step-num">3</div><div class="step-text">監視したいカテゴリと確認間隔を選ぶ</div></div>
+          <div class="step-row"><div class="step-num">4</div><div class="step-text">「監視を開始する」をタップ → 自動で定期確認が始まる</div></div>
+          <div class="step-row"><div class="step-num">5</div><div class="step-text">入荷・在庫復活を検知すると即時Push通知</div></div>
+          <div style="padding:10px 12px;background:var(--s2);border-radius:4px;border:1px solid var(--border);margin-top:4px">
+            <div style="font-size:10px;color:var(--dim);line-height:1.8">
+              💡 <b style="color:var(--gold-l)">ホーム画面に追加</b>するとアプリのように使えます<br>
+              Safari: 共有ボタン → 「ホーム画面に追加」<br>
+              Chrome: メニュー → 「アプリをインストール」
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 仕組み -->
+      <div class="card" style="margin:0 0 14px">
+        <div class="card-body">
+          <div class="card-title">仕組み（無料の理由）</div>
+          <div style="font-size:12px;color:var(--dim);line-height:1.9">
+            <div>🌐 <b style="color:var(--text)">CORSプロキシ経由</b>でエルメス公式サイトのHTMLを直接取得</div>
+            <div>🔍 <b style="color:var(--text)">ブラウザ内でHTMLを解析</b>して商品・在庫を検出</div>
+            <div>📲 <b style="color:var(--text)">Web Push通知</b>（ブラウザ標準機能）で通知</div>
+            <div>💾 <b style="color:var(--text)">localStorage</b>に履歴を保存</div>
+            <div style="margin-top:8px;font-size:11px;color:var(--muted)">
+              サーバー不要・APIキー不要・完全無料
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 注意書き -->
+      <div style="font-size:10px;color:var(--muted);line-height:1.9;padding:4px">
+        ⚠ スマホをスリープさせるとタイマーが停止する場合があります<br>
+        ⚠ Birkin・Kellyはオンライン非販売（店舗のみ）です<br>
+        ⚠ エルメスのサイト構造変更で動作しなくなる場合があります<br>
+        ⚠ このツールはエルメス非公式です
+      </div>
+    </div>
+    <div style="height:32px"></div>
+  </div>
+
+</div><!-- #app -->
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  設定
+// ═══════════════════════════════════════════════════════════
+const PROXY_URLS = [
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+];
+
+const TARGETS = [
+  { id:'all',          label:'全バッグ',       url:'https://www.hermes.com/jp/ja/category/women/bags-and-small-leather-goods/bags-and-clutches/' },
+  { id:'picotin',      label:'Picotin',        url:'https://www.hermes.com/jp/ja/category/women/bags-and-small-leather-goods/bags-and-clutches/?facets=Family_en-US_s%3APicotin' },
+  { id:'evelyne',      label:'Evelyne',         url:'https://www.hermes.com/jp/ja/category/women/bags-and-small-leather-goods/bags-and-clutches/?facets=Family_en-US_s%3AEvelyne' },
+  { id:'constance',   label:'Constance',       url:'https://www.hermes.com/jp/ja/category/women/bags-and-small-leather-goods/bags-and-clutches/?facets=Family_en-US_s%3AConstance' },
+  { id:'lindy',        label:'Lindy',           url:'https://www.hermes.com/jp/ja/category/women/bags-and-small-leather-goods/bags-and-clutches/?facets=Family_en-US_s%3ALindy' },
+  { id:'garden',       label:'Garden Party',   url:'https://www.hermes.com/jp/ja/category/women/bags-and-small-leather-goods/bags-and-clutches/?facets=Family_en-US_s%3AGarden+Party' },
+  { id:'roulis',       label:'Roulis',          url:'https://www.hermes.com/jp/ja/category/women/bags-and-small-leather-goods/bags-and-clutches/?facets=Family_en-US_s%3ARoulis' },
+];
+
+const INTERVALS = [
+  { label:'5分',  ms: 5*60*1000 },
+  { label:'10分', ms:10*60*1000 },
+  { label:'15分', ms:15*60*1000 },
+  { label:'30分', ms:30*60*1000 },
+  { label:'1時間',ms:60*60*1000 },
+];
+
+// ═══════════════════════════════════════════════════════════
+//  状態
+// ═══════════════════════════════════════════════════════════
+let state = {
+  monitoring: false,
+  loading: false,
+  checks: 0,
+  lastCheck: null,
+  interval: 10*60*1000,
+  targets: ['all','picotin','evelyne'],
+  timer: null,
+  countdown: null,
+  nextAt: null,
+  snapshots: {},   // {targetId: {hash, items[]}}
+  notifications: [],
+  currentItems: [],
+  error: '',
+};
+
+// ── 永続化ロード ────────────────────────────────────────────
+function loadState() {
+  try {
+    const s = JSON.parse(localStorage.getItem('hm_state') || '{}');
+    if (s.targets)       state.targets = s.targets;
+    if (s.interval)      state.interval = s.interval;
+    if (s.snapshots)     state.snapshots = s.snapshots;
+    if (s.notifications) state.notifications = s.notifications.slice(0,100);
+    if (s.currentItems)  state.currentItems = s.currentItems;
+    if (s.checks)        state.checks = s.checks;
+    if (s.lastCheck)     state.lastCheck = s.lastCheck;
+  } catch {}
+}
+function saveState() {
+  try {
+    localStorage.setItem('hm_state', JSON.stringify({
+      targets: state.targets,
+      interval: state.interval,
+      snapshots: state.snapshots,
+      notifications: state.notifications,
+      currentItems: state.currentItems,
+      checks: state.checks,
+      lastCheck: state.lastCheck,
+    }));
+  } catch {}
+}
+
+// ═══════════════════════════════════════════════════════════
+//  スクレイピング
+// ═══════════════════════════════════════════════════════════
+async function fetchWithProxy(targetUrl) {
+  for (const makeUrl of PROXY_URLS) {
+    try {
+      const res = await fetch(makeUrl(targetUrl), { signal: AbortSignal.timeout(15000) });
+      if (res.ok) {
+        const text = await res.text();
+        if (text && text.length > 500) return text;
+      }
+    } catch {}
+  }
+  throw new Error('すべてのプロキシが失敗しました。ネットワーク接続を確認してください。');
+}
+
+function parseProducts(html, targetId) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const items = [];
+
+  // エルメスサイトの商品カード候補セレクター群
+  const selectors = [
+    '[class*="product-item"]',
+    '[class*="ProductItem"]',
+    '[class*="product_item"]',
+    'article[class*="product"]',
+    '[data-component="ProductItem"]',
+    '[itemtype*="Product"]',
+    '.product',
+  ];
+
+  let cards = [];
+  for (const sel of selectors) {
+    cards = Array.from(doc.querySelectorAll(sel));
+    if (cards.length > 0) break;
+  }
+
+  // フォールバック: href に /product/ を含むリンクの親
+  if (cards.length === 0) {
+    const links = Array.from(doc.querySelectorAll('a[href*="/product/"]'));
+    cards = [...new Set(links.map(a => a.closest('li,article,div[class]') || a))];
+  }
+
+  cards.slice(0, 50).forEach((card, i) => {
+    try {
+      // URL・ID
+      const link = card.querySelector('a[href*="/product/"]') || card.closest('a[href*="/product/"]');
+      const href = link?.getAttribute('href') || '';
+      const productId = href.match(/\/product\/([^/?#]+)/)?.[1] || `${targetId}-${i}`;
+      const url = href ? (href.startsWith('http') ? href : 'https://www.hermes.com' + href) : '';
+
+      // 名前
+      const nameEl = card.querySelector('h1,h2,h3,[class*="name"],[class*="title"],[class*="Name"]');
+      const name = nameEl?.textContent.trim() || productId;
+
+      // 価格
+      const priceEl = card.querySelector('[class*="price"],[class*="Price"],[data-price]');
+      const price = priceEl?.textContent.trim() || '';
+
+      // 画像
+      const imgEl = card.querySelector('img');
+      const image = imgEl?.src || imgEl?.dataset?.src || imgEl?.getAttribute('data-lazy') || '';
+
+      // 在庫チェック: "out of stock" 系クラスや属性
+      const outSelectors = [
+        '[class*="out-of-stock"]','[class*="sold-out"]','[class*="unavailable"]',
+        '[class*="OutOfStock"]','[aria-disabled="true"]',
+      ];
+      const isOut = outSelectors.some(s => card.querySelector(s) !== null)
+        || /out.?of.?stock|売切|在庫なし|品切/i.test(card.textContent);
+
+      // カートボタンの有無でも在庫判定
+      const hasCart = card.querySelector('[class*="cart"],[class*="Cart"],[class*="add"],[class*="Add"]') !== null;
+
+      items.push({
+        id: productId,
+        name: name.slice(0,60),
+        price: price.slice(0,20),
+        image: image.slice(0,300),
+        url,
+        inStock: !isOut,
+        hasCart,
+        targetId,
+      });
+    } catch {}
+  });
+
+  return items;
+}
+
+function hashItems(items) {
+  // in_stock な商品IDの集合をハッシュ化（簡易）
+  return items.filter(i=>i.inStock).map(i=>i.id).sort().join(',');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  変化検知・通知
+// ═══════════════════════════════════════════════════════════
+function detectChanges(targetId, newItems) {
+  const prev = state.snapshots[targetId];
+  const changes = [];
+  if (!prev) return changes;
+
+  const prevMap = {};
+  (prev.items || []).forEach(i => prevMap[i.id] = i);
+
+  for (const item of newItems) {
+    const p = prevMap[item.id];
+    if (!p && item.inStock) {
+      changes.push({ type:'new', item });
+    } else if (p && !p.inStock && item.inStock) {
+      changes.push({ type:'restock', item });
+    }
+  }
+  return changes;
+}
+
+function addNotification(notif) {
+  state.notifications.unshift(notif);
+  state.notifications = state.notifications.slice(0, 100);
+}
+
+function sendPush(title, body, url) {
+  if (Notification.permission !== 'granted') return;
+  try {
+    const n = new Notification(title, { body, icon:'/favicon.ico', tag:'hm', renotify:true });
+    if (url) n.onclick = () => window.open(url,'_blank');
+  } catch {}
+}
+
+// ═══════════════════════════════════════════════════════════
+//  メインチェック
+// ═══════════════════════════════════════════════════════════
+async function runCheck() {
+  if (state.loading) return;
+  state.loading = true;
+  state.error = '';
+  setStatus('loading');
+  showManualBtn(false);
+
+  const watchTargets = TARGETS.filter(t => state.targets.includes(t.id));
+  const allNewItems = [];
+  let anyChange = false;
+
+  for (const target of watchTargets) {
+    try {
+      const html = await fetchWithProxy(target.url);
+      const items = parseProducts(html, target.id);
+      const changes = detectChanges(target.id, items);
+
+      // スナップショット更新
+      state.snapshots[target.id] = { hash: hashItems(items), items };
+      allNewItems.push(...items);
+
+      for (const ch of changes) {
+        anyChange = true;
+        const typeLabel = ch.type === 'new' ? '新入荷' : '在庫復活';
+        const notif = {
+          id: `${Date.now()}-${ch.item.id}`,
+          type: ch.type,
+          title: `${typeLabel}: ${ch.item.name}`,
+          body: ch.item.price || '',
+          url: ch.item.url,
+          time: new Date().toISOString(),
+        };
+        addNotification(notif);
+        sendPush(
+          `🛍️ HERMÈS ${typeLabel}`,
+          `${ch.item.name}${ch.item.price ? ' · '+ch.item.price : ''}`,
+          ch.item.url
+        );
+      }
+
+      // 小休止（サーバー負荷軽減）
+      await sleep(1500);
+    } catch (err) {
+      console.error(target.label, err.message);
+    }
+  }
+
+  // 変化なしでも情報通知
+  if (!anyChange) {
+    addNotification({
+      id: `${Date.now()}-info`,
+      type: 'info',
+      title: `確認完了 — 変化なし`,
+      body: `${allNewItems.length}件を確認`,
+      time: new Date().toISOString(),
+    });
+  }
+
+  // 重複排除して currentItems に格納
+  const seen = new Set();
+  state.currentItems = allNewItems.filter(i => {
+    if (seen.has(i.id)) return false;
+    seen.add(i.id); return true;
+  });
+
+  state.checks++;
+  state.lastCheck = new Date().toISOString();
+  state.loading = false;
+
+  if (state.monitoring) setStatus('active');
+  else setStatus('idle');
+
+  showManualBtn(true);
+  saveState();
+  render();
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ═══════════════════════════════════════════════════════════
+//  監視制御
+// ═══════════════════════════════════════════════════════════
+async function toggleMonitor() {
+  if (state.monitoring) {
+    stopMonitor();
+  } else {
+    await startMonitor();
+  }
+}
+
+async function startMonitor() {
+  // Push通知許可確認
+  if ('Notification' in window && Notification.permission === 'default') {
+    await Notification.requestPermission();
+  }
+
+  state.monitoring = true;
+  updateStartBtn();
+  showManualBtn(true);
+  document.getElementById('countdown-wrap').style.display = 'block';
+  document.getElementById('progress-wrap').style.display = 'block';
+  document.getElementById('notif-banner').style.display = 'none';
+
+  await runCheck();
+  scheduleNext();
+  showToast('監視を開始しました');
+}
+
+function scheduleNext() {
+  clearInterval(state.timer);
+  clearInterval(state.countdown);
+
+  state.nextAt = Date.now() + state.interval;
+
+  state.timer = setInterval(async () => {
+    await runCheck();
+    state.nextAt = Date.now() + state.interval;
+  }, state.interval);
+
+  state.countdown = setInterval(() => {
+    if (!state.monitoring) return;
+    const rem = Math.max(0, state.nextAt - Date.now());
+    const m = Math.floor(rem / 60000);
+    const s = Math.floor((rem % 60000) / 1000);
+    const pct = 100 - (rem / state.interval * 100);
+    document.getElementById('countdown-val').textContent =
+      state.loading ? '確認中…' : `${m}:${s.toString().padStart(2,'0')}`;
+    document.getElementById('progress-bar').style.width = pct + '%';
+  }, 500);
+}
+
+function stopMonitor() {
+  clearInterval(state.timer);
+  clearInterval(state.countdown);
+  state.monitoring = false;
+  state.loading = false;
+  setStatus('idle');
+  updateStartBtn();
+  showManualBtn(false);
+  document.getElementById('countdown-wrap').style.display = 'none';
+  document.getElementById('progress-wrap').style.display = 'none';
+  document.getElementById('countdown-val').textContent = '--:--';
+  document.getElementById('progress-bar').style.width = '0%';
+  showToast('監視を停止しました');
+  render();
+}
+
+async function manualCheck() {
+  if (state.loading) return;
+  await runCheck();
+  // スケジュールをリセット
+  if (state.monitoring) scheduleNext();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Push通知
+// ═══════════════════════════════════════════════════════════
+async function requestPush() {
+  if (!('Notification' in window)) {
+    showToast('このブラウザはPush通知に非対応です');
+    return;
+  }
+  const perm = await Notification.requestPermission();
+  updatePushStatus();
+  if (perm === 'granted') showToast('Push通知を許可しました 🔔');
+  else showToast('Push通知がブロックされています');
+}
+
+function updatePushStatus() {
+  const textEl = document.getElementById('push-status-text');
+  const btn = document.getElementById('push-btn');
+  const banner = document.getElementById('notif-banner');
+  if (!('Notification' in window)) {
+    textEl.textContent = '⚠ このブラウザは非対応';
+    btn.style.display = 'none';
+  } else if (Notification.permission === 'granted') {
+    textEl.innerHTML = '<span style="color:var(--green)">✓ 許可済み — 入荷時に通知が届きます</span>';
+    btn.style.display = 'none';
+    if (banner) banner.style.display = 'none';
+  } else if (Notification.permission === 'denied') {
+    textEl.innerHTML = '<span style="color:var(--red)">✗ ブロック済み — ブラウザ設定から許可してください</span>';
+    btn.style.display = 'none';
+  } else {
+    textEl.textContent = '通知を許可するとリアルタイムで入荷通知が届きます';
+    btn.style.display = 'inline-block';
+    if (banner) banner.style.display = 'block';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  UI helpers
+// ═══════════════════════════════════════════════════════════
+function setStatus(s) {
+  const dot = document.getElementById('status-dot');
+  const lbl = document.getElementById('status-label');
+  const colorMap = {
+    active:  ['var(--green)', '監視中'],
+    loading: ['var(--gold)', '確認中'],
+    idle:    ['var(--muted)', '停止中'],
+    error:   ['var(--red)', 'エラー'],
+  };
+  const [color, text] = colorMap[s] || colorMap.idle;
+  dot.style.background = color;
+  dot.style.boxShadow = (s==='active'||s==='loading') ? `0 0 8px ${color}` : 'none';
+  dot.className = 'status-dot' + ((s==='active'||s==='loading')?' pulse-dot':'');
+  lbl.textContent = text;
+  lbl.style.color = color;
+}
+
+function updateStartBtn() {
+  const btn = document.getElementById('start-btn');
+  if (state.monitoring) {
+    btn.textContent = '■ 監視を停止する';
+    btn.className = 'btn btn-red';
+  } else {
+    btn.textContent = '▶ 監視を開始する';
+    btn.className = 'btn btn-gold';
+  }
+}
+
+function showManualBtn(show) {
+  const btn = document.getElementById('manual-btn');
+  btn.style.display = show && state.monitoring ? 'block' : 'none';
+  btn.disabled = state.loading;
+}
+
+function showToast(msg) {
+  const old = document.getElementById('toast');
+  if (old) old.remove();
+  const el = document.createElement('div');
+  el.id = 'toast'; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+function clearNotifs() {
+  state.notifications = [];
+  saveState();
+  render();
+  showToast('履歴をクリアしました');
+}
+
+function switchTab(id) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-'+id));
+}
+
+// ═══════════════════════════════════════════════════════════
+//  レンダリング
+// ═══════════════════════════════════════════════════════════
+function fmt(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' });
+}
+
+function notifTagHtml(type) {
+  const map = {
+    new:     ['tag-new', '新入荷'],
+    restock: ['tag-restock', '在庫復活'],
+    info:    ['tag-info', '確認済'],
+    error:   ['tag-error', 'エラー'],
+  };
+  const [cls, label] = map[type] || map.info;
+  return `<span class="notif-tag ${cls}">${label}</span>`;
+}
+
+function render() {
+  const notifs = state.notifications;
+  const items = state.currentItems;
+  const inStock = items.filter(i => i.inStock);
+
+  // Stats
+  const todayNotifs = notifs.filter(n => new Date(n.time).toDateString() === new Date().toDateString());
+  document.getElementById('stat-checks').innerHTML = `${state.checks}<span class="stat-unit">回</span>`;
+  document.getElementById('stat-notifs').innerHTML = `${todayNotifs.length}<span class="stat-unit">件</span>`;
+  document.getElementById('stat-stock').innerHTML  = `${inStock.length}<span class="stat-unit">品</span>`;
+  if (state.lastCheck) {
+    document.getElementById('last-check-label').textContent = `最終確認: ${new Date(state.lastCheck).toLocaleString('ja-JP')}`;
+  }
+
+  // Error
+  const errBox = document.getElementById('error-box');
+  if (state.error) { errBox.textContent = '⚠ ' + state.error; errBox.style.display = 'block'; }
+  else errBox.style.display = 'none';
+
+  // Badges
+  const nb = document.getElementById('notif-badge');
+  if (notifs.length > 0) { nb.textContent = notifs.length; nb.style.display='inline'; }
+  else nb.style.display = 'none';
+
+  const ib = document.getElementById('item-badge');
+  if (items.length > 0) { ib.textContent = items.length; ib.style.display='inline'; }
+  else ib.style.display = 'none';
+
+  // Recent notifs (monitor panel)
+  const recentEl = document.getElementById('recent-notifs');
+  const emptyEl  = document.getElementById('empty-notifs');
+  const moreBtn  = document.getElementById('see-more-btn');
+  const preview  = notifs.slice(0, 5);
+  if (preview.length === 0) {
+    recentEl.innerHTML = '';
+    emptyEl.style.display = 'block';
+    moreBtn.style.display = 'none';
+  } else {
+    emptyEl.style.display = 'none';
+    moreBtn.style.display = notifs.length > 5 ? 'block' : 'none';
+    moreBtn.textContent = `すべての通知履歴を見る（${notifs.length}件）→`;
+    recentEl.innerHTML = preview.map(n => `
+      <div class="notif-row">
+        ${notifTagHtml(n.type)}
+        <div style="flex:1;min-width:0">
+          <div class="notif-title">${esc(n.title)}</div>
+          ${n.body ? `<div class="notif-body">${esc(n.body)}</div>` : ''}
+          ${n.url  ? `<a class="notif-link" href="${esc(n.url)}" target="_blank">商品ページを開く →</a>` : ''}
+        </div>
+        <div class="notif-time">${fmt(n.time)}</div>
+      </div>
+    `).join('');
+  }
+
+  // Full notif list
+  document.getElementById('notif-count-label').textContent = `通知履歴 (${notifs.length}件)`;
+  const nList = document.getElementById('notif-list');
+  const nEmpty = document.getElementById('notif-empty');
+  if (notifs.length === 0) {
+    nList.innerHTML = '';
+    nEmpty.style.display = 'block';
+  } else {
+    nEmpty.style.display = 'none';
+    nList.innerHTML = notifs.map(n => `
+      <div class="notif-row">
+        ${notifTagHtml(n.type)}
+        <div style="flex:1;min-width:0">
+          <div class="notif-title">${esc(n.title)}</div>
+          ${n.body ? `<div class="notif-body">${esc(n.body)}</div>` : ''}
+          ${n.url  ? `<a class="notif-link" href="${esc(n.url)}" target="_blank">商品ページを開く →</a>` : ''}
+        </div>
+        <div class="notif-time">${fmt(n.time)}</div>
+      </div>
+    `).join('');
+  }
+
+  // Items list
+  document.getElementById('items-count-label').textContent = `検出商品 (${items.length}件)`;
+  document.getElementById('in-stock-label').textContent = inStock.length > 0 ? `${inStock.length}件在庫あり` : '';
+  const iList  = document.getElementById('items-list');
+  const iEmpty = document.getElementById('items-empty');
+  if (items.length === 0) {
+    iList.innerHTML = '';
+    iEmpty.style.display = 'block';
+  } else {
+    iEmpty.style.display = 'none';
+    iList.innerHTML = items.map(i => `
+      <div class="product-row">
+        <div class="product-info">
+          <div class="product-name">${esc(i.name)}</div>
+          ${i.price ? `<div class="product-sub">${esc(i.price)}</div>` : ''}
+          ${i.url   ? `<a class="product-link" href="${esc(i.url)}" target="_blank">hermes.com →</a>` : ''}
+        </div>
+        <span class="${i.inStock ? 'in-stock-tag' : 'out-stock-tag'}">${i.inStock ? '在庫あり' : '在庫なし'}</span>
+      </div>
+    `).join('');
+  }
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Chips（カテゴリ・間隔）
+// ═══════════════════════════════════════════════════════════
+function buildChips() {
+  // カテゴリ
+  const catEl = document.getElementById('cat-chips');
+  catEl.innerHTML = TARGETS.map(t => `
+    <div class="chip ${state.targets.includes(t.id)?'on':''}" onclick="toggleTarget('${t.id}')">
+      ${t.label}
+    </div>
+  `).join('');
+
+  // 間隔
+  const intEl = document.getElementById('interval-chips');
+  intEl.innerHTML = INTERVALS.map(o => `
+    <div class="chip ${state.interval===o.ms?'on':''}" onclick="setInterval2(${o.ms})">
+      ${o.label}
+    </div>
+  `).join('');
+}
+
+function toggleTarget(id) {
+  if (state.targets.includes(id)) {
+    state.targets = state.targets.filter(t => t !== id);
+  } else {
+    state.targets = [...state.targets, id];
+  }
+  saveState();
+  buildChips();
+}
+
+function setInterval2(ms) {
+  state.interval = ms;
+  saveState();
+  buildChips();
+  if (state.monitoring) scheduleNext();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  起動
+// ═══════════════════════════════════════════════════════════
+loadState();
+buildChips();
+updatePushStatus();
+updateStartBtn();
+render();
+setStatus('idle');
+</script>
+</body>
+</html>
